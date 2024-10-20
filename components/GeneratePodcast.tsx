@@ -7,7 +7,7 @@ import { Loader } from "lucide-react";
 import { useAction, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { v4 as uuidv4 } from "uuid";
-import { useUploadFiles } from "@xixixao/uploadstuff";
+import { useUploadFiles } from "@xixixao/uploadstuff/react";
 import { useToast } from "@/hooks/use-toast";
 
 const useGeneratePodcast = ({
