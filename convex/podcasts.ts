@@ -33,23 +33,26 @@ export const createPodcast = mutation({
       throw new ConvexError("User not found");
     }
 
-    return await ctx.db.insert("podcasts", {
+    const podcast = await ctx.db.insert("podcasts", {
+      ...args,
       audioStorageId: args.audioStorageId,
       user: user[0]._id,
+      author: user[0].name,
+      authorId: user[0].clerkId,
+      authorImageUrl: user[0].imageUrl,
       podcastTitle: args.podcastTitle,
       podcastDescription: args.podcastDescription,
       audioUrl: args.audioUrl,
       imageUrl: args.imageUrl,
       imageStorageId: args.imageStorageId,
-      author: user[0].name,
-      authorId: user[0].clerkId,
       voicePrompt: args.voicePrompt,
       imagePrompt: args.imagePrompt,
       voiceType: args.voiceType,
       views: args.views,
-      authorImageUrl: user[0].imageUrl,
       audioDuration: args.audioDuration,
     });
+
+    return podcast;
   },
 });
 
