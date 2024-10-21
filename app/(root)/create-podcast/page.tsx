@@ -4,9 +4,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
+import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -26,9 +28,12 @@ import { useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import GeneratePodcast from "@/components/GeneratePodcast";
 import GenerateThumbnail from "@/components/GenerateThumbnail";
-import { Button } from "@/components/ui/button";
 import { Loader } from "lucide-react";
 import { Id } from "@/convex/_generated/dataModel";
+import { useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { useRouter } from "next/navigation";
+import { useToast } from "@/hooks/use-toast";
 
 const voiceCategories = ["alloy", "shimmer", "nova", "echo", "fable", "onyx"];
 
@@ -38,6 +43,7 @@ const formSchema = z.object({
 });
 
 const CreatePodcast = () => {
+  const router = useRouter();
   const [imagePrompt, setImagePrompt] = useState("");
   const [imageStorageId, setImageStorageId] = useState<Id<"_storage"> | null>(
     null
@@ -49,11 +55,16 @@ const CreatePodcast = () => {
     null
   );
   const [audioDuration, setAudioDuration] = useState(0);
-  const [voiceType, setVoiceType] = useState<string | null>();
+
+  const [voiceType, setVoiceType] = useState<string | null>(null);
   const [voicePrompt, setVoicePrompt] = useState("");
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const createPodcast = useMutation(api.podcasts.createPodcast);
+
+  const { toast } = useToast();
+  // 1. Define your form.
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -62,22 +73,52 @@ const CreatePodcast = () => {
     },
   });
 
-  // 2. Define a submit handler.
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    // Do something with the form values.
-    // ✅ This will be type-safe and validated.
-    console.log(values);
+  async function onSubmit(data: z.infer<typeof formSchema>) {
+    try {
+      setIsSubmitting(true);
+      if (!audioUrl || !imageUrl || !voiceType) {
+        toast({
+          title: "Please generate audio and image",
+        });
+        setIsSubmitting(false);
+        throw new Error("Please generate audio and image");
+      }
+
+      const podcast = await createPodcast({
+        podcastTitle: data.podcastTitle,
+        podcastDescription: data.podcastDescription,
+        audioUrl,
+        imageUrl,
+        voiceType,
+        imagePrompt,
+        voicePrompt,
+        views: 0,
+        audioDuration,
+        audioStorageId: audioStorageId!,
+        imageStorageId: imageStorageId!,
+      });
+      toast({ title: "Podcast created" });
+      setIsSubmitting(false);
+      router.push("/");
+    } catch (error) {
+      console.log(error);
+      toast({
+        title: "Error",
+        variant: "destructive",
+      });
+      setIsSubmitting(false);
+    }
   }
 
   return (
     <section className="mt-10 flex flex-col">
       <h1 className="text-20 font-bold text-white-1">Create Podcast</h1>
+
       <Form {...form}>
         <form
           onSubmit={form.handleSubmit(onSubmit)}
           className="mt-12 flex w-full flex-col"
         >
-          {/* PODCAST TITLE, DESCRIPTION AND AI VOICE */}
           <div className="flex flex-col gap-[30px] border-b border-black-5 pb-10">
             <FormField
               control={form.control}
@@ -89,8 +130,8 @@ const CreatePodcast = () => {
                   </FormLabel>
                   <FormControl>
                     <Input
-                      className="input-class focus-visible:ring-offset-1-orange-1"
-                      placeholder="Podcast"
+                      className="input-class focus-visible:ring-offset-orange-1"
+                      placeholder="JSM Pro Podcast"
                       {...field}
                     />
                   </FormControl>
@@ -98,19 +139,21 @@ const CreatePodcast = () => {
                 </FormItem>
               )}
             />
+
             <div className="flex flex-col gap-2.5">
               <Label className="text-16 font-bold text-white-1">
                 Select AI Voice
               </Label>
+
               <Select onValueChange={(value) => setVoiceType(value)}>
                 <SelectTrigger
                   className={cn(
-                    "text-16 w-full border-none bg-black-1 text-gray-1"
+                    "text-16 w-full border-none bg-black-1 text-gray-1 focus-visible:ring-offset-orange-1"
                   )}
                 >
                   <SelectValue
                     placeholder="Select AI Voice"
-                    className="placeholder text-gray-1"
+                    className="placeholder:text-gray-1 "
                   />
                 </SelectTrigger>
                 <SelectContent className="text-16 border-none bg-black-1 font-bold text-white-1 focus:ring-orange-1">
@@ -133,6 +176,7 @@ const CreatePodcast = () => {
                 )}
               </Select>
             </div>
+
             <FormField
               control={form.control}
               name="podcastDescription"
@@ -143,7 +187,7 @@ const CreatePodcast = () => {
                   </FormLabel>
                   <FormControl>
                     <Textarea
-                      className="input-class focus-visible:ring-offset-1-orange-1"
+                      className="input-class focus-visible:ring-offset-orange-1"
                       placeholder="Write a short podcast description"
                       {...field}
                     />
@@ -153,8 +197,6 @@ const CreatePodcast = () => {
               )}
             />
           </div>
-
-          {/* GENERATE PODCAST & THUMBNAIL */}
           <div className="flex flex-col pt-10">
             <GeneratePodcast
               setAudioStorageId={setAudioStorageId}
@@ -165,6 +207,7 @@ const CreatePodcast = () => {
               setVoicePrompt={setVoicePrompt}
               setAudioDuration={setAudioDuration}
             />
+
             <GenerateThumbnail
               setImage={setImageUrl}
               setImageStorageId={setImageStorageId}
@@ -172,10 +215,11 @@ const CreatePodcast = () => {
               imagePrompt={imagePrompt}
               setImagePrompt={setImagePrompt}
             />
+
             <div className="mt-10 w-full">
               <Button
                 type="submit"
-                className="text-16 w-full bg-orange-1 py-4 font-extrabold text-white-1 transition-all duration-100 hover:bg-black-1"
+                className="text-16 w-full bg-orange-1 py-4 font-extrabold text-white-1 transition-all duration-500 hover:bg-black-1"
               >
                 {isSubmitting ? (
                   <>
